@@ -9,7 +9,7 @@ void quickSort(vector<ll>& arr, ll low, ll high)
 {
     if (low < high) 
     {
-        ll pivot = arr[low]; // Выбираем опорный элемент (pivot)
+        ll pivot = arr[low]; // (pivot)
         ll left = low + 1;
         ll right = high;
 
