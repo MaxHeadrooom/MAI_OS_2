@@ -6,7 +6,7 @@ using namespace std;
 
 using ll = long long;
 
-const int MAX_THREADS = 4;
+const int MAX_THREADS = 2;
 
 typedef struct args_ins 
 {
@@ -15,59 +15,67 @@ typedef struct args_ins
     ll end;
 } args_ins_t;
 
-typedef struct args_left_right 
+ll partition(args_ins_t args) 
 {
-    args_ins_t left_args;
-    args_ins_t right_args;
-} args_left_right_t;
+    ll high = args.end;
+    ll low = args.start;
+
+    ll pivot = args.array[high];
+    ll i = (low - 1);
+
+    for (int j = low; j <= high - 1; j++) 
+    {
+        if (args.array[j] <= pivot) 
+        {
+            i++;
+            swap(args.array[i], args.array[j]);
+        }
+    }
+    swap(args.array[i + 1], args.array[high]);
+    return (i + 1);
+}
 
 void* quickSort(void* input) 
 {
-    args_left_right_t* args = (args_left_right_t*)input;
-    ll* arr = args->left_args.array;
-    ll left = args->left_args.start;
-    ll right = args->left_args.end;
+    args_ins_t* ar = (args_ins_t*)input;
+    ll* arr = ar->array;
+    ll start = ar->start;
+    ll end = ar->end;
+    stack<pair<ll, ll>> stack;
+    stack.push(make_pair(start, end));
 
-    if (left < right) 
+    if (start == 0 and end == 32)
     {
-        ll pivot = arr[left];
-        ll low = left + 1;
-        ll high = right;
+        true;
+    }
 
-        while (true) 
+    vector<ll> a;
+
+    while (!stack.empty()) 
+    {
+        for (int i = start; i < end; i++) 
         {
-            while (low <= high and arr[low] <= pivot)
-                low++;
-            while (arr[high] >= pivot && high >= low)
-                high--;
-            if (high < low)
-                break;
-            else
-                swap(arr[low], arr[high]);
+            a.push_back(ar->array[i]); // Копируем элементы из ar в arr
         }
 
-        swap(arr[left], arr[high]);
+        ll low = stack.top().first; 
+        ll high = stack.top().second;
+        stack.pop();
 
-        args_ins_t left_args = args->left_args;
-        args_ins_t right_args = args->right_args;
-
-        left_args.end = high - 1;
-        right_args.start = high + 1;
-
-        args_left_right_t new_args;
-        new_args.left_args = left_args;
-        new_args.right_args = right_args;
-
-        pthread_t left_thread, right_thread;
-        pthread_create(&left_thread, NULL, quickSort, &new_args);
-
-        // Запуск сортировки правой части в текущем потоке
-        quickSort(&right_args);
-
-        pthread_join(left_thread, NULL); // Ожидание завершения левого потока
+        if (low < high) 
+        {
+            args_ins_t arg;
+            arg.array = arr;
+            arg.end = high;
+            arg.start = low; 
+            ll pivot_index = partition(arg);
+            if (pivot_index > low)
+                stack.push(make_pair(low, pivot_index - 1));
+            if (pivot_index < high)
+                stack.push(make_pair(pivot_index + 1, high));
+        }
     }
 }
-
 
 void potok(vector<ll>& arr, ll low, ll high)
 {
@@ -92,20 +100,23 @@ void potok(vector<ll>& arr, ll low, ll high)
         if (new_low < new_high) 
         {
             args_ins_t* data = (args_ins_t*)malloc(sizeof(args_ins_t));
-            data->array = &(arr[partitions[i]]); // Передача указателя на массив
-            data->start = new_low;
-            data->end = new_high;
+            data->array = arr.data(); // Передача указателя на массив
+            data->start = new_low; // Установка начального индекса
+            data->end = new_high; // Установка конечного индекса
             pthread_create(&threads[i], NULL, quickSort, data);
         }
-        // Вывод для отладки (может быть убран)
-        for (int j = new_low; j <= new_high; j++) 
-            cout << arr[j] << " ";
-        cout << '\n';
     }
 
     for (int i = 0; i < MAX_THREADS; i++) {
         pthread_join(threads[i], NULL); // Ожидание завершения потоков
     }
+
+    // Вывод для отладки (может быть убран)
+    // for (int j = 0; j <= 32; j++) 
+    //     cout << arr[j] << " ";
+    // cout << '\n';
+
+    
 }
 
 
@@ -115,29 +126,20 @@ int main()
 
     cin >> n;
 
-    ll* arr = new ll[n];
+    vector<ll> arr(n);
     for (int i = 0; i < n; i++)
     {
-        std::cin >> arr[i];
+        cin >> arr[i];
     }
 
-    //auto start = chrono::high_resolution_clock::now();
+    auto start = chrono::high_resolution_clock::now();
 
-    pthread_t threads[MAX_THREADS];
-    args_ins_t* data = (args_ins_t*)malloc(sizeof(args_ins_t));
-    data->array = arr; // Передача указателя на массив
-    data->start = 0;
-    data->end = 32;
+    // Создание потоков
+    potok(arr, 0, n - 1);
 
+    auto end = chrono::high_resolution_clock::now();
 
-    //quickSort(arr, 0, n - 1);
-
-    pthread_create(&threads[0], NULL, quickSort, data);
-
-    //potok(m, 0, n - 1);
-
-    //auto end = chrono::high_resolution_clock::now();
-
+    // Ожидание завершения потоков
     for (int i = 0; i < n; i++) 
     {
         cout << arr[i] << " ";
@@ -145,9 +147,9 @@ int main()
 
     cout << '\n';
 
-    //auto duration = chrono::duration_cast<chrono::microseconds>(end - start);
+    auto duration = chrono::duration_cast<chrono::microseconds>(end - start);
 
-    //cout << "microsec: " <<  duration.count() << '\n';
+    cout << duration.count() << '\n';
 
     return 0;
 }
